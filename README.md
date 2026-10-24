@@ -1,241 +1,86 @@
-# Système de Gestion Hospitalier
+# HôpitalWeb
 
-## Vue d'ensemble
+Application de gestion hospitalière en PHP et MySQL/MariaDB. Elle regroupe les dossiers administratifs des patients, les activités cliniques et les fonctions de soutien dans une interface responsive.
 
-Ce système est une application web complète de gestion hospitalière développée en PHP, HTML et CSS pur, utilisant une base de données MySQL.
+## Modules
 
-## Fonctionnalités principales
+- Dossiers des patients, médecins, consultations et rendez-vous avec suivi de statut.
+- Hospitalisations, services, occupation et disponibilité des lits.
+- Pharmacie : catalogue, quantités en stock, seuils d’alerte, péremption, prescriptions et délivrances.
+- Laboratoire : catalogue d’analyses, demandes, prélèvements et résultats.
+- Facturation, documents médicaux, rapports et exports disponibles dans l’application.
+- Comptes utilisateurs, journal d’activité, notifications, messagerie interne et sauvegardes administrateur.
 
-### 1. Gestion des Utilisateurs
-- **Authentification sécurisée** avec sessions PHP
-- **Rôles et permissions** (admin, doctor, patient, staff)
-- **Gestion des mots de passe** avec réinitialisation
-- **Expiration automatique** des sessions après 2 heures d'inactivité
-- **Verrouillage automatique** des comptes après 5 tentatives de connexion échouées
-- **Historique des connexions** et journal des activités
+## Prérequis
 
-### 2. Gestion des Données
-- **Patients**: Ajout, modification, consultation, suppression
-- **Médecins**: Gestion complète avec spécialités
-- **Consultations**: Enregistrement des rendez-vous et diagnostics
-- **Factures**: Génération et suivi des factures
-- **Requêtes préparées** pour prévenir les injections SQL
-- **Recherche avancée** et filtrage
+- PHP 7.4 ou plus avec extensions `mysqli`, `fileinfo` et `openssl`.
+- MySQL 8 ou MariaDB compatible avec les clés étrangères et les index FULLTEXT.
+- Serveur web configuré pour servir le dossier du projet en PHP.
 
-### 3. Gestion Documentaire
-- **Téléversement de fichiers** (PDF, DOC, JPG, PNG)
-- **Téléchargement** sécurisé de documents
-- **Association des documents** aux patients
-- **Gestion des versions** de fichiers
+## Installation d’une nouvelle base
 
-### 4. Rapports et Statistiques
-- **Tableau de bord** avec statistiques en temps réel
-- **Rapports personnalisés** par type
-- **Export en CSV** pour tous les rapports
-- **Impressions formatées** pour les documents
+1. Créez la base et un compte SQL dédié :
 
-### 5. Sécurité
-- **Chiffrement des mots de passe** avec bcrypt
-- **Tokens CSRF** pour tous les formulaires
-- **Sessions sécurisées** avec httponly et secure flags
-- **Validation et sanitisation** de toutes les entrées
-- **Contrôle d'accès** basé sur les rôles
-
-### 6. Communication
-- **Notifications internes** pour les utilisateurs
-- **Historique des activités** complète
-- **Alertes automatiques** pour les événements importants
-
-### 7. Administration
-- **Panneau d'administration** réservé aux admins
-- **Gestion des utilisateurs** et déverrouillage de comptes
-- **Sauvegardes** automatiques et manuelles
-- **Paramétrage du système**
-
-## Architecture du projet
-
-```
-HopitalWeb/
-├── config/
-│   └── database.php          # Configuration de la base de données
-├── includes/
-│   ├── functions.php         # Fonctions utilitaires
-│   ├── auth.php              # Système d'authentification
-│   ├── header.php            # En-tête HTML
-│   └── footer.php            # Pied de page HTML
-├── admin/
-│   ├── index.php             # Tableau de bord admin
-│   ├── users.php             # Gestion des utilisateurs
-│   ├── activity.php          # Journal des activités
-│   └── backup.php            # Gestion des sauvegardes
-├── js/
-│   └── main.js               # Scripts JavaScript
-├── css/
-│   └── style.css             # Feuilles de style
-├── uploads/                  # Stockage des documents uploadés
-├── backups/                  # Stockage des sauvegardes
-├── login.php                 # Page de connexion
-├── register.php              # Page d'inscription
-├── dashboard.php             # Tableau de bord principal
-├── patients.php              # Gestion des patients
-├── medecins.php              # Gestion des médecins
-├── consultations.php         # Gestion des consultations
-├── factures.php              # Gestion des factures
-├── documents.php             # Gestion des documents
-├── notifications.php         # Notifications utilisateur
-├── reports.php               # Génération de rapports
-├── profile.php               # Profil utilisateur
-├── change-password.php       # Changement de mot de passe
-├── logout.php                # Déconnexion
-└── README.md                 # Ce fichier
-```
-
-## Installation
-
-### Prérequis
-- PHP 7.4+
-- MySQL 5.7+
-- Navigateur web moderne
-
-### Étapes d'installation
-
-1. **Créer la base de données**
    ```sql
-   CREATE DATABASE hopital_db;
+   CREATE DATABASE hopital_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'hopital_app'@'localhost' IDENTIFIED BY 'remplacer-par-un-mot-de-passe-fort';
+   GRANT SELECT, INSERT, UPDATE, DELETE ON hopital_db.* TO 'hopital_app'@'localhost';
    ```
 
-2. **Créer l'utilisateur MySQL**
-   ```sql
-   CREATE USER 'admin_hopital'@'localhost' IDENTIFIED BY 'Admin@123';
-   GRANT ALL PRIVILEGES ON hopital_db.* TO 'admin_hopital'@'localhost';
-   FLUSH PRIVILEGES;
+2. Importez `database_schema.sql` dans cette base.
+
+   Réalisez cette étape avec un compte SQL autorisé à créer des tables et des index. Le compte `hopital_app` est destiné à l’exécution quotidienne et ne reçoit que les droits de lecture et d’écriture.
+
+3. Configurez les variables d’environnement de la connexion :
+
+   ```text
+   DB_HOST=localhost
+   DB_NAME=hopital_db
+   DB_USER=hopital_app
+   DB_PASSWORD=remplacer-par-un-mot-de-passe-fort
+   APP_TIMEZONE=Africa/Bujumbura
    ```
 
-3. **Importer la structure de la base de données** (voir le fichier SQL joint)
+   Générez aussi une clé de chiffrement propre à l’installation et configurez-la dans l’environnement du serveur :
 
-4. **Placer les fichiers** dans le dossier web de votre serveur
-
-5. **Configurer les permissions** des dossiers
    ```bash
-   chmod 755 uploads/
-   chmod 755 backups/
+   openssl rand -hex 32
    ```
 
-## Utilisation
+   Copiez le résultat dans `HOSPITAL_DATA_KEY` et conservez-le dans le gestionnaire de secrets du serveur. Ne changez pas cette clé sans réencrypter les CIN déjà stockés.
 
-### Connexion
-- URL: `http://localhost/index.php` ou `http://localhost/login.php`
-- Utilisateurs par défaut: (à créer lors de l'installation)
-- Les mots de passe expirent après 2 heures d'inactivité
+   Les valeurs de secours dans `config/database.php` servent uniquement au développement local. Remplacez-les ou configurez les variables ci-dessus avant tout déploiement.
 
-### Page d'accueil
-- Affiche le tableau de bord avec les statistiques clés
-- Accès rapide aux fonctionnalités principales
-- Pas d'accès possible si non authentifié
+4. Démarrez le serveur PHP avec la racine du projet comme document root. Donnez au serveur les droits d’écriture nécessaires sur `uploads/` et le répertoire de sauvegarde configuré.
 
-### Gestion des Patients
-1. Accéder à "Patients" depuis le menu
-2. Voir la liste des patients avec recherche
-3. Ajouter un nouveau patient avec les informations
-4. Consulter ou éditer les informations existantes
+5. Créez un compte depuis l’écran d’inscription. Pour attribuer le rôle administrateur à ce compte, connectez-vous à MySQL et exécutez :
 
-### Gestion des Consultations
-1. Aller à "Consultations"
-2. Créer une nouvelle consultation
-3. Sélectionner patient et médecin
-4. Enregistrer motif, diagnostic et traitement
+   ```sql
+   UPDATE users SET role = 'admin' WHERE email = 'adresse-administrateur@example.com';
+   ```
 
-### Gestion des Factures
-1. Accéder à "Factures"
-2. Créer une nouvelle facture
-3. Associer à un patient et consulta tion
-4. Exporter en Excel pour comptabilité
+   Aucun compte administrateur avec un mot de passe public n’est créé par le schéma.
 
-### Rapports
-1. Utiliser le menu "Rapports"
-2. Sélectionner le type de rapport
-3. Exporter en CSV ou imprimer
+## Mise à niveau d’une installation existante
 
-## Fonctionnalités de sécurité
+1. Faites une sauvegarde de la base et des fichiers téléversés.
+2. Importez à nouveau `database_schema.sql` dans la base existante. Les tables déjà présentes sont conservées; les nouveaux modules sont créés.
+3. Exécutez `database_migrations.sql` pour ajouter les colonnes manquantes aux tables déjà installées.
 
-### Protection contre les injections SQL
-- Toutes les requêtes utilisent des requêtes préparées
-- Utilisation de paramètres bind
+La migration vérifie les colonnes et index avant de les créer. Elle peut être relancée après un import partiel.
 
-### Protection CSRF
-- Token CSRF généré et vérifié pour chaque formulaire
-- Paramètres POST et GET vérifiés
+## Utilisation des modules
 
-### Gestion des sessions
-- Sessions sécurisées avec flags httponly et secure
-- Expiration automatique après 2 heures
-- Vérification active de l'utilisateur pour chaque action
+- **Rendez-vous** : créez un créneau en choisissant un patient, un médecin et une durée. Un contrôle empêche de réserver un créneau qui chevauche un autre rendez-vous du médecin.
+- **Hospitalisations** : créez les services et les lits, admettez un patient sur un lit disponible puis enregistrez sa sortie pour libérer le lit.
+- **Pharmacie** : créez le catalogue et le stock initial, saisissez les réapprovisionnements et délivrez les prescriptions. La délivrance réduit le stock et conserve une trace du mouvement.
+- **Laboratoire** : créez le catalogue d’analyses, prescrivez un examen, suivez le prélèvement et renseignez le résultat avant de le clôturer.
 
-### Mot de passe
-- Hachage avec bcrypt (PASSWORD_BCRYPT)
-- Expiration après 2 heures
-- Réinitialisation sécurisée avec tokens
+Les modules utilisent la même liste de patients et de médecins que les autres écrans. Les changements de statut sont soumis avec protection CSRF et les opérations de lits et de stocks sont transactionnelles.
 
-### Validation des entrées
-- Toutes les entrées sont sanitisées
-- Validation des types de fichiers uploadés
-- Limite de taille des fichiers (10 MB)
+## Configuration et limites
 
-## Base de données
-
-### Tables principales
-- `users`: Utilisateurs du système
-- `patients`: Informations des patients
-- `medecins`: Informations des médecins
-- `consultations`: Enregistrements des consultations
-- `factures`: Factures générées
-- `documents`: Fichiers uploadés
-- `notifications`: Notifications des utilisateurs
-- `activity_log`: Journal complet des activités
-
-## Maintenance
-
-### Sauvegardes
-- Sauvegardes automatiques configurées dans MySQL
-- Sauvegardes manuelles depuis le panneau admin
-- Les fichiers de sauvegarde sont stockés dans `/backups/`
-
-### Logs
-- Toutes les activités sont enregistrées dans `activity_log`
-- Accessible depuis le panneau admin
-- Contient: user, action, détails, IP, user agent, timestamp
-
-## Troubleshooting
-
-### La page de connexion s'affiche en boucle
-- Vérifiez que les sessions PHP sont activées
-- Vérifiez la configuration du cookie
-- Vérifiez les permissions du dossier `/tmp/`
-
-### Les fichiers ne s'uploadent pas
-- Vérifiez que le dossier `uploads/` existe et est accessible en écriture
-- Vérifiez la taille maximale d'upload PHP (php.ini)
-- Vérifiez le type de fichier uploaden (doit être dans la liste blanche)
-
-### La base de données ne se connecte pas
-- Vérifiez les identifiants dans `config/database.php`
-- Vérifiez que MySQL est démarré
-- Vérifiez que l'utilisateur a les droits nécessaires
-
-## Support et amélioration
-
-Ce système peut être amélioré avec:
-- Authentification à deux facteurs
-- API REST pour intégrations externes
-- Notifications par email
-- Chat en temps réel avec WebSocket
-- Mobile app avec React Native
-- Intégration avec systèmes de paiement
-
-## Licence
-
-© 2026 Système de Gestion Hospitalier. Tous droits réservés.
-
-## Contact
-
-Pour toute question ou assistance, veuillez contacter l'administrateur système.
+- La durée d’inactivité d’une session connectée est de deux heures.
+- Le journal d’emails conserve les messages en base; configurez un véritable service d’envoi avant de dépendre des emails de réinitialisation ou de vérification.
+- Les données de patients sont sensibles. Les nouveaux CIN sont chiffrés en AES-GCM et leur empreinte sert à détecter les doublons; les anciens CIN restent lisibles pendant la migration. Déployez l’application derrière HTTPS, limitez les comptes et droits SQL, protégez les sauvegardes et configurez `HOSPITAL_DATA_KEY` avant toute utilisation avec des données réelles.
+- Cette application constitue un outil de gestion et ne remplace pas les procédures cliniques, la validation professionnelle ni les exigences réglementaires applicables à votre établissement.

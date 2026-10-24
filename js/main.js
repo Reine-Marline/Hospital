@@ -190,6 +190,45 @@ function submitFormAjax(formId, successCallback) {
 // Initialiser au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     initTooltips();
+
+    const navToggle = document.querySelector('.nav-toggle');
+    const primaryNavigation = document.getElementById('primary-navigation');
+    if (navToggle && primaryNavigation) {
+        const closeNavigation = () => {
+            primaryNavigation.classList.remove('is-open');
+            navToggle.setAttribute('aria-expanded', 'false');
+            navToggle.setAttribute('aria-label', 'Ouvrir le menu');
+        };
+
+        navToggle.addEventListener('click', function() {
+            const isOpen = primaryNavigation.classList.toggle('is-open');
+            navToggle.setAttribute('aria-expanded', String(isOpen));
+            navToggle.setAttribute('aria-label', isOpen ? 'Fermer le menu' : 'Ouvrir le menu');
+        });
+
+        primaryNavigation.querySelectorAll('.nav-group').forEach(group => {
+            group.addEventListener('toggle', function() {
+                if (!this.open) return;
+                primaryNavigation.querySelectorAll('.nav-group').forEach(other => {
+                    if (other !== this) other.open = false;
+                });
+            });
+        });
+
+        primaryNavigation.querySelectorAll('a').forEach(link => link.addEventListener('click', closeNavigation));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closeNavigation();
+                primaryNavigation.querySelectorAll('.nav-group').forEach(group => { group.open = false; });
+                if (navToggle.getClientRects().length > 0) navToggle.focus();
+            }
+        });
+        document.addEventListener('click', event => {
+            if (!primaryNavigation.contains(event.target) && !navToggle.contains(event.target)) {
+                primaryNavigation.querySelectorAll('.nav-group').forEach(group => { group.open = false; });
+            }
+        });
+    }
     
     // Ajouter des événements de validation aux formulaires
     const forms = document.querySelectorAll('form');

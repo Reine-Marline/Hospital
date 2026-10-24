@@ -18,6 +18,10 @@ $r = $conn->query("SELECT COUNT(*) as c FROM consultations WHERE is_archived=0")
 $r = $conn->query("SELECT COALESCE(SUM(montant),0) as t FROM factures WHERE status='paid' AND is_archived=0"); $revenuTotal = $r->fetch_assoc()['t'];
 $r = $conn->query("SELECT COUNT(*) as c FROM factures WHERE status='pending' AND is_archived=0"); $pendingCount = $r->fetch_assoc()['c'];
 $r = $conn->query("SELECT COUNT(*) as c FROM documents WHERE is_archived=0"); $docCount = $r->fetch_assoc()['c'];
+$r = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE DATE(starts_at)=CURDATE() AND status IN ('scheduled','confirmed','arrived')"); $todayAppointmentCount = $r ? $r->fetch_assoc()['c'] : 0;
+$r = $conn->query("SELECT COUNT(*) as c FROM admissions WHERE status='admitted'"); $inpatientCount = $r ? $r->fetch_assoc()['c'] : 0;
+$r = $conn->query("SELECT COUNT(*) as c FROM lab_orders WHERE status IN ('requested','collected','in_progress')"); $pendingLabCount = $r ? $r->fetch_assoc()['c'] : 0;
+$r = $conn->query("SELECT COUNT(*) as c FROM medicines WHERE is_active=1 AND stock_quantity<=minimum_stock"); $lowStockCount = $r ? $r->fetch_assoc()['c'] : 0;
 
 // Dernières consultations
 $lastConsultations = [];
@@ -33,7 +37,10 @@ $pageTitle = 'Tableau de bord';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<h1 style="margin-bottom:2rem;"><i class="fas fa-tachometer-alt"></i> Bienvenue, <?php echo htmlspecialchars($username); ?> !</h1>
+<section class="page-heading">
+    <div><p class="eyebrow">Vue générale · <?php echo date('d/m/Y'); ?></p><h1>Bonjour, <?php echo htmlspecialchars($username); ?></h1><p>Voici les indicateurs et les activités de l’hôpital.</p></div>
+    <a class="btn btn-primary" href="/appointments.php"><i class="fas fa-calendar-plus"></i> Nouveau rendez-vous</a>
+</section>
 
 <!-- Cartes de statistiques -->
 <div class="dashboard-grid">
@@ -50,8 +57,8 @@ require_once __DIR__ . '/includes/header.php';
         <div class="stat-card-info"><h3><?php echo $consultationCount; ?></h3><p>Consultations</p></div>
     </div>
     <div class="stat-card">
-        <div class="stat-card-icon" style="background:rgba(16,185,129,0.1);color:#059669;"><i class="fas fa-euro-sign"></i></div>
-        <div class="stat-card-info"><h3><?php echo number_format($revenuTotal,0,',',' '); ?> €</h3><p>Revenus</p></div>
+        <div class="stat-card-icon tone-green"><i class="fas fa-money-bill-wave"></i></div>
+        <div class="stat-card-info"><h3><?php echo number_format($revenuTotal,0,',',' '); ?> BIF</h3><p>Revenus encaissés</p></div>
     </div>
     <div class="stat-card">
         <div class="stat-card-icon" style="background:rgba(239,68,68,0.1);color:#dc2626;"><i class="fas fa-hourglass-half"></i></div>
@@ -63,6 +70,13 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<div class="dashboard-grid dashboard-grid-clinical">
+    <a class="stat-card stat-card-link" href="/appointments.php"><div class="stat-card-icon tone-blue"><i class="fas fa-calendar-day"></i></div><div class="stat-card-info"><h3><?php echo (int)$todayAppointmentCount; ?></h3><p>Rendez-vous aujourd’hui</p></div></a>
+    <a class="stat-card stat-card-link" href="/admissions.php"><div class="stat-card-icon tone-red"><i class="fas fa-bed-pulse"></i></div><div class="stat-card-info"><h3><?php echo (int)$inpatientCount; ?></h3><p>Patients hospitalisés</p></div></a>
+    <a class="stat-card stat-card-link" href="/laboratory.php"><div class="stat-card-icon tone-amber"><i class="fas fa-flask"></i></div><div class="stat-card-info"><h3><?php echo (int)$pendingLabCount; ?></h3><p>Analyses en cours</p></div></a>
+    <a class="stat-card stat-card-link" href="/pharmacy.php"><div class="stat-card-icon tone-green"><i class="fas fa-capsules"></i></div><div class="stat-card-info"><h3><?php echo (int)$lowStockCount; ?></h3><p>Alertes de stock</p></div></a>
+</div>
+
 <!-- Actions rapides -->
 <div class="card">
     <h2 class="card-title"><i class="fas fa-bolt"></i> Actions rapides</h2>
@@ -70,6 +84,9 @@ require_once __DIR__ . '/includes/header.php';
         <a href="/patients.php?action=new" class="btn btn-primary"><i class="fas fa-user-plus"></i> Nouveau patient</a>
         <a href="/medecins.php?action=new" class="btn btn-primary"><i class="fas fa-user-md"></i> Nouveau médecin</a>
         <a href="/consultations.php?action=new" class="btn btn-success"><i class="fas fa-plus-circle"></i> Nouvelle consultation</a>
+        <a href="/admissions.php" class="btn btn-secondary"><i class="fas fa-bed-pulse"></i> Admissions et lits</a>
+        <a href="/laboratory.php" class="btn btn-secondary"><i class="fas fa-flask"></i> Laboratoire</a>
+        <a href="/pharmacy.php" class="btn btn-secondary"><i class="fas fa-capsules"></i> Pharmacie</a>
         <a href="/factures.php?action=new" class="btn btn-warning"><i class="fas fa-file-invoice"></i> Nouvelle facture</a>
         <a href="/documents.php?action=upload" class="btn btn-secondary"><i class="fas fa-cloud-upload-alt"></i> Téléverser document</a>
         <a href="/reports.php" class="btn btn-danger"><i class="fas fa-chart-line"></i> Rapports</a>
@@ -77,7 +94,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <!-- Grille des dernières données -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;">
+<div class="dashboard-columns">
     <!-- Dernières consultations -->
     <div class="card">
         <h2 class="card-title"><i class="fas fa-clipboard-list"></i> Dernières consultations</h2>
@@ -111,7 +128,7 @@ require_once __DIR__ . '/includes/header.php';
                     <tr>
                         <td><code><?php echo htmlspecialchars($lf['numero_facture']); ?></code></td>
                         <td><?php echo htmlspecialchars(($lf['nom']??'').' '.($lf['prenom']??'')); ?></td>
-                        <td><?php echo number_format($lf['montant'],2); ?> €</td>
+                        <td><?php echo number_format($lf['montant'],0,',',' '); ?> BIF</td>
                         <td><span class="badge badge-<?php echo $lf['status']==='paid'?'success':($lf['status']==='pending'?'warning':'danger'); ?>"><?php echo ucfirst($lf['status']); ?></span></td>
                     </tr>
                     <?php endforeach; ?>
@@ -129,8 +146,6 @@ require_once __DIR__ . '/includes/header.php';
     <div class="btn-group" style="flex-wrap:wrap;">
         <a href="/admin/users.php" class="btn btn-warning"><i class="fas fa-users-cog"></i> Utilisateurs</a>
         <a href="/admin/activity.php" class="btn btn-warning"><i class="fas fa-history"></i> Journal activités</a>
-        <a href="/admin/login-history.php" class="btn btn-warning"><i class="fas fa-sign-in-alt"></i> Historique connexions</a>
-        <a href="/admin/settings.php" class="btn btn-warning"><i class="fas fa-cogs"></i> Paramètres</a>
         <a href="/admin/backup.php" class="btn btn-danger"><i class="fas fa-database"></i> Sauvegardes</a>
     </div>
 </div>

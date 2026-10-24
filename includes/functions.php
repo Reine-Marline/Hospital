@@ -204,17 +204,58 @@ function generateSafeFileName($originalName) {
     return $name . '_' . uniqid() . '.' . $ext;
 }
 
-// Chiffrement des données (AES-256-CBC)
+// Clé d'environnement pour les nouvelles données sensibles.
+function getDataEncryptionKey() {
+    $configuredKey = getenv('HOSPITAL_DATA_KEY');
+    if ($configuredKey === false || strlen($configuredKey) < 32) {
+        static $warningLogged = false;
+        if (!$warningLogged) {
+            error_log('HOSPITAL_DATA_KEY absent ou trop court; la clé de compatibilité locale est utilisée.');
+            $warningLogged = true;
+        }
+        $configuredKey = 'hospital_secret_key_1234567890abcdef';
+    }
+    return hash('sha256', $configuredKey, true);
+}
+
+// Chiffrement authentifié avec nonce aléatoire (format v2).
 function encryptData($data) {
-    if (empty($data)) return '';
+    if ($data === '') return '';
+    $iv = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($data, 'aes-256-gcm', getDataEncryptionKey(), OPENSSL_RAW_DATA, $iv, $tag);
+    if ($ciphertext === false) {
+        throw new RuntimeException('Le chiffrement de la donnée a échoué.');
+    }
+    return 'v2:' . base64_encode($iv . $tag . $ciphertext);
+}
+
+// Empreinte stable pour détecter un doublon sans stocker le CIN en clair.
+function patientIdentityFingerprint($identity) {
+    $key = hash_hmac('sha256', 'patient-identity-index', getDataEncryptionKey(), true);
+    return hash_hmac('sha256', strtoupper(trim($identity)), $key);
+}
+
+// Chiffrement déterministe utilisé uniquement pour reconnaître les anciens CIN.
+function encryptLegacyData($data) {
+    if ($data === '') return '';
     $key = hash('sha256', 'hospital_secret_key_1234567890abcdef');
     $iv = substr(hash('sha256', 'hospital_secret_iv_1234567890'), 0, 16);
     return base64_encode(openssl_encrypt($data, 'AES-256-CBC', $key, 0, $iv));
 }
 
-// Déchiffrement des données (AES-256-CBC)
+// Compatibilité avec les CIN historiques en AES-CBC; les nouvelles données sont en AES-GCM.
 function decryptData($data) {
-    if (empty($data)) return '';
+    if ($data === '') return '';
+    if (strncmp($data, 'v2:', 3) === 0) {
+        $payload = base64_decode(substr($data, 3), true);
+        if ($payload === false || strlen($payload) < 29) return '';
+        $iv = substr($payload, 0, 12);
+        $tag = substr($payload, 12, 16);
+        $ciphertext = substr($payload, 28);
+        $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', getDataEncryptionKey(), OPENSSL_RAW_DATA, $iv, $tag);
+        return $plain === false ? '' : $plain;
+    }
     $key = hash('sha256', 'hospital_secret_key_1234567890abcdef');
     $iv = substr(hash('sha256', 'hospital_secret_iv_1234567890'), 0, 16);
     return openssl_decrypt(base64_decode($data), 'AES-256-CBC', $key, 0, $iv);

@@ -1,7 +1,4 @@
 <?php
-/**
- * En-tête de l'application - PHP pur, pas de JavaScript
- */
 require_once __DIR__ . '/functions.php';
 startSecureSession();
 
@@ -9,73 +6,101 @@ $loggedIn = isLoggedIn();
 $username = $_SESSION['username'] ?? '';
 $userRole = $_SESSION['user_role'] ?? '';
 $userTheme = $_SESSION['theme'] ?? 'light';
-
-// Compteur de notifications non lues
 $unreadCount = 0;
+
 if ($loggedIn && isset($conn)) {
-    $countQuery = $conn->prepare("SELECT COUNT(*) as cnt FROM notifications WHERE user_id = ? AND is_read = 0");
+    $countQuery = $conn->prepare('SELECT COUNT(*) AS cnt FROM notifications WHERE user_id = ? AND is_read = 0');
     if ($countQuery) {
-        $countQuery->bind_param("i", $_SESSION['user_id']);
+        $countQuery->bind_param('i', $_SESSION['user_id']);
         $countQuery->execute();
-        $countRes = $countQuery->get_result()->fetch_assoc();
-        $unreadCount = $countRes['cnt'];
+        $countResult = $countQuery->get_result()->fetch_assoc();
+        $unreadCount = (int)($countResult['cnt'] ?? 0);
         $countQuery->close();
     }
 }
+
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
+$navLink = static function (string $path, string $label, string $icon) use ($currentPath): string {
+    $active = $currentPath === $path ? ' aria-current="page"' : '';
+    return '<a href="' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '"' . $active . '><i class="' . htmlspecialchars($icon, ENT_QUOTES, 'UTF-8') . '" aria-hidden="true"></i><span>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span></a>';
+};
 ?>
 <!DOCTYPE html>
-<html lang="fr" data-theme="<?php echo htmlspecialchars($userTheme); ?>">
+<html lang="fr" data-theme="<?php echo htmlspecialchars($userTheme, ENT_QUOTES, 'UTF-8'); ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Gestion Hôpital'; ?></title>
+    <meta name="theme-color" content="#f8fafc">
+    <title><?php echo htmlspecialchars($pageTitle ?? 'Gestion Hôpital', ENT_QUOTES, 'UTF-8'); ?></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <nav class="navbar">
+<header class="app-header">
+    <nav class="navbar" aria-label="Navigation principale">
         <div class="navbar-container">
-            <a href="/dashboard.php" class="navbar-logo">
-                <i class="fas fa-hospital-user"></i> HôpitalWeb
+            <a href="/dashboard.php" class="navbar-logo" aria-label="HôpitalWeb, accueil">
+                <i class="fas fa-hospital-user" aria-hidden="true"></i><span>HôpitalWeb</span>
             </a>
-            <ul class="navbar-menu">
+            <?php if ($loggedIn): ?>
+                <button class="nav-toggle" type="button" aria-controls="primary-navigation" aria-expanded="false" aria-label="Ouvrir le menu">
+                    <span></span><span></span><span></span>
+                </button>
+            <?php endif; ?>
+            <div class="navbar-menu" id="primary-navigation">
                 <?php if ($loggedIn): ?>
-                    <li><a href="/dashboard.php"><i class="fas fa-tachometer-alt"></i> Tableau de bord</a></li>
-                    <li><a href="/patients.php"><i class="fas fa-users"></i> Patients</a></li>
-                    <li><a href="/medecins.php"><i class="fas fa-stethoscope"></i> Médecins</a></li>
-                    <li><a href="/consultations.php"><i class="fas fa-clipboard-list"></i> Consultations</a></li>
-                    <li><a href="/factures.php"><i class="fas fa-file-invoice-dollar"></i> Factures</a></li>
-                    <li><a href="/documents.php"><i class="fas fa-folder-open"></i> Documents</a></li>
-                    <li><a href="/chat.php"><i class="fas fa-comments"></i> Chat</a></li>
-                    <li><a href="/reports.php"><i class="fas fa-chart-line"></i> Rapports</a></li>
-                    <?php if ($userRole === 'admin'): ?>
-                        <li><a href="/admin/index.php"><i class="fas fa-sliders-h"></i> Admin</a></li>
-                    <?php endif; ?>
-                    <li>
-                        <a href="/notifications.php">
-                            <i class="fas fa-bell"></i>
-                            <?php if ($unreadCount > 0): ?>
-                                <span class="badge badge-danger"><?php echo $unreadCount; ?></span>
-                            <?php endif; ?>
-                        </a>
-                    </li>
-                    <li><a href="/profile.php"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($username); ?></a></li>
-                    <li><a href="/logout.php"><i class="fas fa-sign-out-alt"></i> Déconnexion</a></li>
+                    <div class="nav-links">
+                        <?php echo $navLink('/dashboard.php', 'Accueil', 'fas fa-house'); ?>
+                        <details class="nav-group <?php echo in_array($currentPath, ['/patients.php', '/consultations.php', '/appointments.php', '/admissions.php', '/medecins.php'], true) ? 'has-current' : ''; ?>">
+                            <summary><i class="fas fa-heart-pulse" aria-hidden="true"></i><span>Soins</span><i class="fas fa-chevron-down nav-chevron" aria-hidden="true"></i></summary>
+                            <div class="nav-dropdown">
+                                <?php echo $navLink('/patients.php', 'Patients', 'fas fa-users'); ?>
+                                <?php echo $navLink('/consultations.php', 'Consultations', 'fas fa-stethoscope'); ?>
+                                <?php echo $navLink('/appointments.php', 'Rendez-vous', 'fas fa-calendar-check'); ?>
+                                <?php echo $navLink('/admissions.php', 'Hospitalisations', 'fas fa-bed-pulse'); ?>
+                                <?php echo $navLink('/medecins.php', 'Médecins', 'fas fa-user-doctor'); ?>
+                            </div>
+                        </details>
+                        <details class="nav-group <?php echo in_array($currentPath, ['/pharmacy.php', '/laboratory.php', '/factures.php', '/documents.php', '/reports.php'], true) ? 'has-current' : ''; ?>">
+                            <summary><i class="fas fa-briefcase-medical" aria-hidden="true"></i><span>Services</span><i class="fas fa-chevron-down nav-chevron" aria-hidden="true"></i></summary>
+                            <div class="nav-dropdown">
+                                <?php echo $navLink('/pharmacy.php', 'Pharmacie', 'fas fa-capsules'); ?>
+                                <?php echo $navLink('/laboratory.php', 'Laboratoire', 'fas fa-flask'); ?>
+                                <?php echo $navLink('/factures.php', 'Facturation', 'fas fa-file-invoice-dollar'); ?>
+                                <?php echo $navLink('/documents.php', 'Documents', 'fas fa-folder-open'); ?>
+                                <?php echo $navLink('/reports.php', 'Rapports', 'fas fa-chart-line'); ?>
+                            </div>
+                        </details>
+                        <details class="nav-group <?php echo in_array($currentPath, ['/chat.php', '/notifications.php'], true) ? 'has-current' : ''; ?>">
+                            <summary><i class="fas fa-comments" aria-hidden="true"></i><span>Communication</span><i class="fas fa-chevron-down nav-chevron" aria-hidden="true"></i></summary>
+                            <div class="nav-dropdown">
+                                <?php echo $navLink('/chat.php', 'Messagerie', 'fas fa-comment-dots'); ?>
+                                <?php echo $navLink('/notifications.php', 'Notifications', 'fas fa-bell'); ?>
+                            </div>
+                        </details>
+                    </div>
+                    <div class="nav-account">
+                        <?php if ($userRole === 'admin'): ?>
+                            <?php echo $navLink('/admin/index.php', 'Administration', 'fas fa-sliders'); ?>
+                        <?php endif; ?>
+                        <a class="nav-user" href="/profile.php"><i class="fas fa-user-circle" aria-hidden="true"></i><span><?php echo htmlspecialchars($username, ENT_QUOTES, 'UTF-8'); ?></span></a>
+                        <a class="nav-logout" href="/logout.php" aria-label="Déconnexion"><i class="fas fa-right-from-bracket" aria-hidden="true"></i><span>Quitter</span></a>
+                    </div>
                 <?php else: ?>
-                    <li><a href="/login.php"><i class="fas fa-sign-in-alt"></i> Connexion</a></li>
-                    <li><a href="/register.php"><i class="fas fa-user-plus"></i> Inscription</a></li>
+                    <div class="nav-account nav-account-public">
+                        <?php echo $navLink('/login.php', 'Connexion', 'fas fa-right-to-bracket'); ?>
+                        <?php echo $navLink('/register.php', 'Inscription', 'fas fa-user-plus'); ?>
+                    </div>
                 <?php endif; ?>
-            </ul>
+            </div>
         </div>
     </nav>
-
-    <div class="container">
-        <?php
-        $flash = getFlashMessage();
-        if ($flash):
-            $class = 'alert-' . $flash['type'];
-        ?>
-            <div class="alert <?php echo htmlspecialchars($class); ?>">
-                <?php echo htmlspecialchars($flash['message']); ?>
-            </div>
-        <?php endif; ?>
+</header>
+<main class="container">
+    <?php $flash = getFlashMessage(); if ($flash): ?>
+        <div class="alert alert-<?php echo htmlspecialchars($flash['type'], ENT_QUOTES, 'UTF-8'); ?>" role="status">
+            <?php echo htmlspecialchars($flash['message'], ENT_QUOTES, 'UTF-8'); ?>
+        </div>
+    <?php endif; ?>

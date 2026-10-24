@@ -112,36 +112,12 @@ foreach ($users as $u) {
 }
 
 $pageTitle = 'Chat en temps réel';
+require_once __DIR__ . '/includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="fr" data-theme="<?php echo htmlspecialchars($_SESSION['theme'] ?? 'light'); ?>">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?></title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <?php if ($chat_with > 0): ?>
-        <!-- Auto-refresh toutes les 10 secondes pour simuler le temps réel sans JS -->
-        <meta http-equiv="refresh" content="10;url=/chat.php?user=<?php echo $chat_with; ?>">
-    <?php endif; ?>
-</head>
-<body>
-    <nav class="navbar">
-        <div class="navbar-container">
-            <a href="/dashboard.php" class="navbar-logo"><i class="fas fa-hospital-user"></i> HôpitalWeb</a>
-            <ul class="navbar-menu">
-                <li><a href="/dashboard.php"><i class="fas fa-tachometer-alt"></i> Tableau de bord</a></li>
-                <li><a href="/chat.php" class="active"><i class="fas fa-comments"></i> Chat</a></li>
-                <li><a href="/notifications.php"><i class="fas fa-bell"></i></a></li>
-                <li><a href="/profile.php"><i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($username); ?></a></li>
-                <li><a href="/logout.php"><i class="fas fa-sign-out-alt"></i></a></li>
-            </ul>
-        </div>
-    </nav>
-
-    <div class="container">
-        <div class="chat-container">
+<?php if ($error !== ''): ?><div class="alert alert-error" role="alert"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
+<?php if ($success !== ''): ?><div class="alert alert-success" role="status"><?php echo htmlspecialchars($success); ?></div><?php endif; ?>
+<section class="page-heading"><div><p class="eyebrow">Équipe hospitalière</p><h1>Messagerie interne</h1><p>Échangez avec les autres membres du personnel.</p></div></section>
+<div class="chat-container">
             <!-- Liste des utilisateurs -->
             <div class="chat-sidebar">
                 <div class="chat-search" style="padding:1rem;border-bottom:1px solid var(--border);">
@@ -214,13 +190,4 @@ $pageTitle = 'Chat en temps réel';
                     </div>
                 <?php endif; ?>
             </div>
-        </div>
-    </div>
-
-    <footer class="footer">
-        <div class="footer-content">
-            <p>&copy; 2026 Système de Gestion Hôpital.</p>
-        </div>
-    </footer>
-</body>
-</html>
+<?php require_once __DIR__ . '/includes/footer.php'; ?>

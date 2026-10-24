@@ -7,8 +7,8 @@ require_once __DIR__ . '/functions.php';
 
 // Authentifier l'utilisateur
 function authenticateUser($username, $password, $conn) {
-    $query = "SELECT id, username, email, password, role, status, last_login, 
-              password_changed_at FROM users WHERE username = ? AND status = 'active' LIMIT 1";
+    $query = "SELECT id, username, email, password, role, status, last_login
+              FROM users WHERE username = ? AND status = 'active' LIMIT 1";
     
     $stmt = $conn->prepare($query);
     if (!$stmt) {
@@ -33,12 +33,6 @@ function authenticateUser($username, $password, $conn) {
         return ['success' => false, 'error' => 'Identifiants invalides'];
     }
     
-    // Vérifier si le mot de passe a expiré (après 2 heures)
-    $passwordAge = strtotime('now') - strtotime($user['password_changed_at']);
-    if ($passwordAge > 7200) { // 2 heures
-        return ['success' => false, 'error' => 'Votre mot de passe a expiré. Veuillez le réinitialiser.', 'expired' => true, 'user_id' => $user['id']];
-    }
-    
     // Mettre à jour la dernière connexion
     $updateQuery = "UPDATE users SET last_login = NOW(), failed_login_attempts = 0 WHERE id = ?";
     $updateStmt = $conn->prepare($updateQuery);
@@ -50,6 +44,7 @@ function authenticateUser($username, $password, $conn) {
     
     // Créer la session
     startSecureSession();
+    session_regenerate_id(true);
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
     $_SESSION['user_role'] = $user['role'];

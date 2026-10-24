@@ -97,7 +97,7 @@ $loggedIn = false;
 
         .features {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
             gap: 2rem;
             padding: 60px 20px;
         }
@@ -174,6 +174,30 @@ $loggedIn = false;
                 <i class="fas fa-stethoscope"></i>
                 <h3>Consultations</h3>
                 <p>Enregistrez et suivez toutes les consultations avec détails complets et diagnostics.</p>
+            </div>
+
+            <div class="feature">
+                <i class="fas fa-calendar-check"></i>
+                <h3>Rendez-vous</h3>
+                <p>Planifiez les consultations, évitez les chevauchements et suivez leur statut.</p>
+            </div>
+
+            <div class="feature">
+                <i class="fas fa-bed-pulse"></i>
+                <h3>Hospitalisations</h3>
+                <p>Suivez les admissions, les sorties et l’occupation des lits par service.</p>
+            </div>
+
+            <div class="feature">
+                <i class="fas fa-capsules"></i>
+                <h3>Pharmacie</h3>
+                <p>Gérez les médicaments, les stocks, les seuils d’alerte et les prescriptions.</p>
+            </div>
+
+            <div class="feature">
+                <i class="fas fa-flask"></i>
+                <h3>Laboratoire</h3>
+                <p>Suivez les demandes d’analyses, les prélèvements et la validation des résultats.</p>
             </div>
 
             <div class="feature">

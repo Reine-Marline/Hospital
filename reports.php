@@ -19,7 +19,7 @@ $reportTitle = 'Rapport';
 // --- Rapport Patients ---
 if ($type === 'patients') {
     $reportTitle = 'Rapport des Patients';
-    $sql = "SELECT id, nom, prenom, cin, date_naissance, sexe, groupe_sanguin, phone, email, created_at FROM patients WHERE is_archived = 0";
+    $sql = "SELECT id, nom, prenom, date_naissance, sexe, groupe_sanguin, phone, email, created_at FROM patients WHERE is_archived = 0";
     if (!empty($date_from)) { $sql .= " AND created_at >= '" . $conn->real_escape_string($date_from) . "'"; }
     if (!empty($date_to)) { $sql .= " AND created_at <= '" . $conn->real_escape_string($date_to) . " 23:59:59'"; }
     $sql .= " ORDER BY created_at DESC";
@@ -210,12 +210,12 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="stat-card-info"><h3><?php echo $reportData['total_consultations']; ?></h3><p>Consultations</p></div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-card-icon" style="background:rgba(16,185,129,0.1);color:#059669;"><i class="fas fa-euro-sign"></i></div>
-                        <div class="stat-card-info"><h3><?php echo number_format($reportData['revenu_total'], 2); ?> €</h3><p>Revenu Total</p></div>
+                        <div class="stat-card-icon" style="background:rgba(16,185,129,0.1);color:#059669;"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-card-info"><h3><?php echo number_format($reportData['revenu_total'], 0, ',', ' '); ?> BIF</h3><p>Revenu Total</p></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card-icon" style="background:rgba(239,68,68,0.1);color:var(--danger);"><i class="fas fa-hourglass-half"></i></div>
-                        <div class="stat-card-info"><h3><?php echo number_format($reportData['factures_en_attente'], 2); ?> €</h3><p>En attente</p></div>
+                        <div class="stat-card-info"><h3><?php echo number_format($reportData['factures_en_attente'], 0, ',', ' '); ?> BIF</h3><p>En attente</p></div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card-icon"><i class="fas fa-folder-open"></i></div>
@@ -240,20 +240,20 @@ require_once __DIR__ . '/includes/header.php';
                     <strong>Prévision :</strong> En moyenne, <strong><?php echo $reportData['prevision_patients']; ?></strong> nouveaux patients par mois.
                 </div>
 
-                <h3 style="margin-top:2rem;margin-bottom:1rem;"><i class="fas fa-euro-sign"></i> Tendance Revenus (12 derniers mois)</h3>
+                <h3 style="margin-top:2rem;margin-bottom:1rem;"><i class="fas fa-money-bill-wave"></i> Tendance Revenus (12 derniers mois)</h3>
                 <div class="table-responsive">
                     <table class="table">
-                        <thead><tr><th>Mois</th><th>Revenu (€)</th></tr></thead>
+                        <thead><tr><th>Mois</th><th>Revenu (BIF)</th></tr></thead>
                         <tbody>
                             <?php foreach ($reportData['revenu_trend'] as $rt): ?>
-                            <tr><td><?php echo htmlspecialchars($rt['mois']); ?></td><td><?php echo number_format($rt['revenu'], 2); ?> €</td></tr>
+                            <tr><td><?php echo htmlspecialchars($rt['mois']); ?></td><td><?php echo number_format($rt['revenu'], 0, ',', ' '); ?> BIF</td></tr>
                             <?php endforeach; ?>
                             <?php if (empty($reportData['revenu_trend'])): ?><tr><td colspan="2" style="text-align:center;">Pas de données.</td></tr><?php endif; ?>
                         </tbody>
                     </table>
                 </div>
                 <div class="alert alert-info" style="margin-top:1rem;">
-                    <strong>Prévision :</strong> Revenu mensuel moyen estimé : <strong><?php echo number_format($reportData['prevision_revenu'], 2); ?> €</strong>.
+                    <strong>Prévision :</strong> Revenu mensuel moyen estimé : <strong><?php echo number_format($reportData['prevision_revenu'], 0, ',', ' '); ?> BIF</strong>.
                 </div>
 
             <?php elseif ($type === 'comparative'): ?>
@@ -288,7 +288,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php foreach ($row as $key => $val): ?>
                                     <td>
                                         <?php
-                                        if (strpos($key, 'montant') !== false) echo number_format($val, 2) . ' €';
+                                        if (strpos($key, 'montant') !== false) echo number_format($val, 0, ',', ' ') . ' BIF';
                                         elseif (strpos($key, 'date') !== false || strpos($key, 'created') !== false) echo formatDate($val);
                                         else echo htmlspecialchars($val);
                                         ?>

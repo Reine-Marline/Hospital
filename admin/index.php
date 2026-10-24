@@ -55,8 +55,9 @@ $userRole = 'admin';
 
 <?php require_once __DIR__ . '/../includes/header.php'; ?>
 
-<div class="container">
-    <h1>Panneau d'Administration</h1>
+<section class="page-heading">
+    <div><p class="eyebrow">Gestion de la plateforme</p><h1>Administration</h1><p>Comptes, activités et maintenance du système.</p></div>
+</section>
     
     <div class="dashboard-grid" style="margin-bottom: 2rem;">
         <div class="stat-card">
@@ -84,6 +85,7 @@ $userRole = 'admin';
                 <li><a href="/admin/users.php">Gestion des utilisateurs</a></li>
                 <li><a href="/admin/activity.php">Journal des activités</a></li>
                 <li><a href="/admin/backup.php">Sauvegardes</a></li>
+                <li><a href="/tables.php">Tables de données</a></li>
                 <li><a href="/dashboard.php">Retour au tableau de bord</a></li>
             </ul>
         </div>
@@ -95,6 +97,7 @@ $userRole = 'admin';
                     <a href="/admin/users.php" class="btn btn-primary">Gérer les utilisateurs</a>
                     <a href="/admin/activity.php" class="btn btn-primary">Voir les activités</a>
                     <a href="/admin/backup.php" class="btn btn-warning">Gérer les sauvegardes</a>
+                    <a href="/tables.php" class="btn btn-secondary">Voir les tables de données</a>
                 </div>
             </div>
 
@@ -108,6 +111,4 @@ $userRole = 'admin';
             </div>
         </div>
     </div>
-</div>
-
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

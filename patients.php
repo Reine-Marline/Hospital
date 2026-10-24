@@ -25,6 +25,7 @@ $next_order = $order === 'ASC' ? 'desc' : 'asc';
 // Paramètres de filtrage
 $filter_sexe = sanitize($_GET['sexe'] ?? '');
 $filter_groupe = sanitize($_GET['groupe_sanguin'] ?? '');
+$filter_bed_id = max(0, (int)($_GET['bed_id'] ?? 0));
 $view_archive = (isset($_GET['status']) && $_GET['status'] === 'archived') ? 1 : 0;
 $searchTerm = sanitize($_GET['search'] ?? '');
 
@@ -99,6 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
         $prenom = sanitize($_POST['prenom'] ?? '');
         $cin = sanitize($_POST['cin'] ?? '');
         $date_naissance = sanitize($_POST['date_naissance'] ?? '');
+        if ($date_naissance === '') { $date_naissance = null; }
         $adresse = sanitize($_POST['adresse'] ?? '');
         $phone = sanitize($_POST['phone'] ?? '');
         $email = sanitize($_POST['email'] ?? '');
@@ -108,15 +110,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
         if (empty($nom) || empty($prenom) || empty($cin)) {
             $error = 'Les champs obligatoires sont: nom, prénom, CIN';
         } else {
-            // Chiffrer le CIN pour des raisons de sécurité
+            // Chiffrer le CIN avec un nonce aléatoire et comparer son empreinte unique.
             $encryptedCin = encryptData($cin);
+            $cinFingerprint = patientIdentityFingerprint($cin);
+            $legacyEncryptedCin = encryptLegacyData($cin);
+            $currentPatientId = $action === 'edit' ? (int)($_GET['id'] ?? 0) : 0;
+            $duplicateQuery = $conn->prepare('SELECT id FROM patients WHERE (cin_fingerprint = ? OR cin = ? OR cin = ?) AND id <> ? LIMIT 1');
+            $duplicateQuery->bind_param('sssi', $cinFingerprint, $legacyEncryptedCin, $cin, $currentPatientId);
+            $duplicateQuery->execute();
+            $cinAlreadyUsed = $duplicateQuery->get_result()->num_rows > 0;
+            $duplicateQuery->close();
             
-            if ($action === 'new') {
-                $query = "INSERT INTO patients (nom, prenom, cin, date_naissance, adresse, phone, email, sexe, groupe_sanguin, created_at, is_archived) 
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0)";
+            if ($cinAlreadyUsed) {
+                $error = 'Un dossier patient utilise déjà ce CIN.';
+            } elseif ($action === 'new') {
+                $query = "INSERT INTO patients (nom, prenom, cin, cin_fingerprint, date_naissance, adresse, phone, email, sexe, groupe_sanguin, created_at, is_archived)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 0)";
                 $stmt = $conn->prepare($query);
                 if ($stmt) {
-                    $stmt->bind_param("sssssssss", $nom, $prenom, $encryptedCin, $date_naissance, $adresse, $phone, $email, $sexe, $groupe_sanguin);
+                    $stmt->bind_param("ssssssssss", $nom, $prenom, $encryptedCin, $cinFingerprint, $date_naissance, $adresse, $phone, $email, $sexe, $groupe_sanguin);
                     if ($stmt->execute()) {
                         $success = 'Patient ajouté avec succès.';
                         logActivity($user_id, 'ADD_PATIENT', 'Ajout du patient: ' . $nom . ' ' . $prenom, $conn);
@@ -128,10 +140,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($action, ['new', 'edit']))
                 }
             } else {
                 $patient_id = (int)$_GET['id'];
-                $query = "UPDATE patients SET nom = ?, prenom = ?, cin = ?, date_naissance = ?, adresse = ?, phone = ?, email = ?, sexe = ?, groupe_sanguin = ? WHERE id = ?";
+                $query = "UPDATE patients SET nom = ?, prenom = ?, cin = ?, cin_fingerprint = ?, date_naissance = ?, adresse = ?, phone = ?, email = ?, sexe = ?, groupe_sanguin = ? WHERE id = ?";
                 $stmt = $conn->prepare($query);
                 if ($stmt) {
-                    $stmt->bind_param("sssssssssi", $nom, $prenom, $encryptedCin, $date_naissance, $adresse, $phone, $email, $sexe, $groupe_sanguin, $patient_id);
+                    $stmt->bind_param("ssssssssssi", $nom, $prenom, $encryptedCin, $cinFingerprint, $date_naissance, $adresse, $phone, $email, $sexe, $groupe_sanguin, $patient_id);
                     if ($stmt->execute()) {
                         $success = 'Patient modifié avec succès.';
                         logActivity($user_id, 'EDIT_PATIENT', 'Modification du patient: ' . $nom . ' ' . $prenom . ' (ID: ' . $patient_id . ')', $conn);
@@ -169,20 +181,39 @@ if (in_array($action, ['edit', 'view']) && isset($_GET['id'])) {
 
 // Récupérer la liste filtrée/triée des patients
 $patients = [];
+$occupiedBeds = [];
+$bedsResult = $conn->query("SELECT DISTINCT b.id, b.bed_number, w.name AS ward_name FROM beds b JOIN wards w ON w.id = b.ward_id JOIN admissions a ON a.bed_id = b.id AND a.status = 'admitted' WHERE w.is_active = 1 ORDER BY w.name, b.bed_number");
+if ($bedsResult) {
+    $occupiedBeds = $bedsResult->fetch_all(MYSQLI_ASSOC);
+}
 $queryParams = [];
 $types = '';
-$sql = "SELECT * FROM patients WHERE is_archived = ?";
+$sql = "SELECT p.*, w.name AS current_ward, b.bed_number AS current_bed
+        FROM patients p
+        LEFT JOIN (
+            SELECT patient_id, MAX(id) AS admission_id
+            FROM admissions
+            WHERE status = 'admitted'
+            GROUP BY patient_id
+        ) current_admission ON current_admission.patient_id = p.id
+        LEFT JOIN admissions a ON a.id = current_admission.admission_id
+        LEFT JOIN beds b ON b.id = a.bed_id
+        LEFT JOIN wards w ON w.id = b.ward_id
+        WHERE p.is_archived = ?";
 $queryParams[] = $view_archive;
 $types .= 'i';
 
 if (!empty($searchTerm)) {
-    // Note: Pour chercher sur le CIN chiffré, nous devrons déchiffrer en PHP ou faire un matching exact si encryptData donne toujours la même valeur. 
-    // Cependant, la recherche sur le nom/prenom fonctionne directement en SQL.
-    $sql .= " AND (nom LIKE ? OR prenom LIKE ?)";
+    $sql .= " AND (nom LIKE ? OR prenom LIKE ? OR cin_fingerprint = ? OR cin = ? OR cin = ?)";
     $searchPattern = '%' . $searchTerm . '%';
+    $searchFingerprint = patientIdentityFingerprint($searchTerm);
+    $legacySearchCin = encryptLegacyData($searchTerm);
     $queryParams[] = $searchPattern;
     $queryParams[] = $searchPattern;
-    $types .= 'ss';
+    $queryParams[] = $searchFingerprint;
+    $queryParams[] = $legacySearchCin;
+    $queryParams[] = $searchTerm;
+    $types .= 'sssss';
 }
 
 if (!empty($filter_sexe)) {
@@ -192,12 +223,18 @@ if (!empty($filter_sexe)) {
 }
 
 if (!empty($filter_groupe)) {
-    $sql .= " AND groupe_sanguin = ?";
+    $sql .= " AND p.groupe_sanguin = ?";
     $queryParams[] = $filter_groupe;
     $types .= 's';
 }
 
-$sql .= " ORDER BY $sort_by $order LIMIT 100";
+if ($filter_bed_id > 0) {
+    $sql .= " AND b.id = ?";
+    $queryParams[] = $filter_bed_id;
+    $types .= 'i';
+}
+
+$sql .= " ORDER BY p.$sort_by $order LIMIT 100";
 
 $stmt = $conn->prepare($sql);
 if ($stmt) {
@@ -214,6 +251,7 @@ if ($stmt) {
     }
     $stmt->close();
 }
+$filterBedQuery = $filter_bed_id > 0 ? '&bed_id=' . $filter_bed_id : '';
 
 $pageTitle = 'Gestion des Patients';
 ?>
@@ -275,6 +313,15 @@ $pageTitle = 'Gestion des Patients';
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="bed_id">Chambre / lit occupé</label>
+                        <select id="bed_id" name="bed_id">
+                            <option value="">Toutes les chambres</option>
+                            <?php foreach ($occupiedBeds as $occupiedBed): ?>
+                                <option value="<?php echo (int)$occupiedBed['id']; ?>" <?php echo $filter_bed_id === (int)$occupiedBed['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($occupiedBed['ward_name'] . ' · Chambre ' . $occupiedBed['bed_number']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <button type="submit" class="btn btn-primary" style="flex: 1;"><i class="fas fa-filter"></i> Filtrer</button>
                         <a href="/patients.php<?php echo $view_archive ? '?status=archived' : ''; ?>" class="btn btn-secondary"><i class="fas fa-undo"></i></a>
@@ -287,12 +334,13 @@ $pageTitle = 'Gestion des Patients';
                 <table class="table">
                     <thead>
                         <tr>
-                            <th><a href="/patients.php?sort_by=id&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe); ?><?php echo $view_archive ? '&status=archived' : ''; ?>">ID <i class="fas fa-sort"></i></a></th>
-                            <th><a href="/patients.php?sort_by=nom&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe); ?><?php echo $view_archive ? '&status=archived' : ''; ?>">Nom <i class="fas fa-sort"></i></a></th>
-                            <th><a href="/patients.php?sort_by=prenom&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe); ?><?php echo $view_archive ? '&status=archived' : ''; ?>">Prénom <i class="fas fa-sort"></i></a></th>
-                            <th><a href="/patients.php?sort_by=cin&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe); ?><?php echo $view_archive ? '&status=archived' : ''; ?>">CIN <i class="fas fa-sort"></i></a></th>
+                            <th><a href="/patients.php?sort_by=id&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe) . $filterBedQuery; ?><?php echo $view_archive ? '&status=archived' : ''; ?>">ID <i class="fas fa-sort"></i></a></th>
+                            <th><a href="/patients.php?sort_by=nom&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe) . $filterBedQuery; ?><?php echo $view_archive ? '&status=archived' : ''; ?>">Nom <i class="fas fa-sort"></i></a></th>
+                            <th><a href="/patients.php?sort_by=prenom&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe) . $filterBedQuery; ?><?php echo $view_archive ? '&status=archived' : ''; ?>">Prénom <i class="fas fa-sort"></i></a></th>
+                            <th><a href="/patients.php?sort_by=cin&order=<?php echo $next_order; ?>&search=<?php echo urlencode($searchTerm); ?>&sexe=<?php echo urlencode($filter_sexe); ?>&groupe_sanguin=<?php echo urlencode($filter_groupe) . $filterBedQuery; ?><?php echo $view_archive ? '&status=archived' : ''; ?>">CIN <i class="fas fa-sort"></i></a></th>
                             <th>Téléphone</th>
                             <th>Email</th>
+                            <th>Chambre / lit</th>
                             <th>Groupe Sanguin</th>
                             <th>Actions</th>
                         </tr>
@@ -306,6 +354,7 @@ $pageTitle = 'Gestion des Patients';
                             <td><code><?php echo htmlspecialchars($patient['cin']); ?></code></td>
                             <td><?php echo htmlspecialchars($patient['phone']); ?></td>
                             <td><?php echo htmlspecialchars($patient['email']); ?></td>
+                            <td><?php echo !empty($patient['current_bed']) ? htmlspecialchars($patient['current_ward'] . ' · ' . $patient['current_bed']) : '<span class="muted-text">Non hospitalisé</span>'; ?></td>
                             <td>
                                 <?php if (!empty($patient['groupe_sanguin'])): ?>
                                     <span class="badge badge-info"><?php echo htmlspecialchars($patient['groupe_sanguin']); ?></span>

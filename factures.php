@@ -186,7 +186,7 @@ require_once __DIR__ . '/includes/header.php';
                             <td><?php echo $f['id']; ?></td>
                             <td><code><?php echo htmlspecialchars($f['numero_facture']); ?></code></td>
                             <td><?php echo htmlspecialchars(($f['patient_nom']??'').' '.($f['patient_prenom']??'')); ?></td>
-                            <td><strong><?php echo number_format($f['montant'],2); ?> €</strong></td>
+                            <td><strong><?php echo number_format($f['montant'],0,',',' '); ?> BIF</strong></td>
                             <td><span class="badge badge-<?php echo $f['status']==='paid'?'success':($f['status']==='pending'?'warning':'danger'); ?>"><?php echo ucfirst($f['status']); ?></span></td>
                             <td><?php echo formatDate($f['created_at'],'d/m/Y'); ?></td>
                             <td>
@@ -234,7 +234,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
                     <div class="form-group">
-                        <label for="montant">Montant (€) *</label>
+                        <label for="montant">Montant (BIF) *</label>
                         <input type="number" id="montant" name="montant" step="0.01" min="0" value="<?php echo htmlspecialchars($currentFacture['montant'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
